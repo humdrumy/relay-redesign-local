@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#0e1926"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relay · Slack test</title><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/wake.css"><script type="module" src="/wake.mjs"></script></head>
+<body><main>
+  <header><a href="/">← Relay workspace</a><h1>Slack test</h1></header>
+  <section class="steps" aria-label="Test stages"><div><b>1</b><strong>Event saved</strong></div><div><b>2</b><strong>Slack delivery</strong></div><div><b>3</b><strong>Agent receipt</strong></div></section>
+  <div id="notice" role="status" aria-live="polite">Loading…</div>
+  <section class="card"><h2>Slack connection</h2><p id="connection">Checking…</p>
+    <form id="config"><label>Slack channel ID<input name="channel" id="channel" required value="" pattern="[CG][A-Z0-9]+"></label><small>your configured Slack test channel: </small>
+      <label>Optional dot mention<input name="mention" id="mention" placeholder="Slack user ID, e.g. U0123456789" pattern="[UW][A-Z0-9]+"></label>
+      <label class="toggle"><input type="checkbox" name="enabled" id="enabled"> Notify on new tasks and messages to dot</label>
+      <p class="muted">Recipient: dot</p>
+      <div class="actions"><button type="submit">Save settings</button><button type="button" id="test" class="primary" disabled>Send test notification</button></div>
+    </form>
+  </section>
+  <section class="card"><div class="row"><h2>Notification receipts</h2><button id="refresh" type="button">Refresh</button></div><p class="muted">Delivery and acknowledgment are separate. Receipts use the owner connection; agent identity is unverified.</p><div id="receipts">No notifications</div></section>
+  <details class="card"><summary>Setup</summary><ol>
+    <li>Create <strong>Relay Wake</strong> in <a href="https://api.slack.com/apps" target="_blank" rel="noopener">Slack</a> with the <a href="/slack-app-manifest.json" target="_blank" rel="noopener">app manifest</a>. Install in your Slack workspace; invite to #test.</li>
+    <li>Set the Site secret <code>SLACK_BOT_TOKEN</code> and <code>RELAY_PUBLIC_URL</code>, then redeploy. Keep tokens out of messages.</li>
+    <li>Configure dot’s Slack trigger for #test and connect the Relay plugin. Call <code>relay_read_inbox</code>, read the task or room, then call <code>relay_ack_wake</code> with the wake ID.</li>
+    <li>Send a test notification. If delivered without a receipt, check dot’s trigger, Relay connection and run history.</li>
+  </ol><p>Retries require an open page or a new Relay event. Timeouts may duplicate delivery; acknowledgments are idempotent. Retention: 100 completed or failed deliveries.</p></details>
+</main></body></html>

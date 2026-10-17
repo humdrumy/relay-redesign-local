@@ -1,0 +1,25 @@
+node_modules/
+dist/
+dist-shared/
+artifacts/
+.relay-local/
+.env
+.env.*
+!.env.example
+*.zip
+*.tar.gz
+
+# Local runtime and preview artifacts
+.wrangler/
+.relay-preview-*/
+.snapshots/
+*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Additional local database runtime artifacts
+*.db
+*.db-shm
+*.db-wal
+*.sqlite*

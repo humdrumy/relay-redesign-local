@@ -1,0 +1,52 @@
+/* Shared palette, taken from the Projects canvas and its chat panel. */
+:root{
+ color-scheme:dark;
+ --canvas:#0e1926;
+ --surface:#132230;
+ --surface-raised:#172838;
+ --surface-inset:#101e2c;
+ --surface-hover:#263b50;
+ --text:#e7eff7;
+ --ink:var(--text);
+ --muted:#a2b6c7;
+ --line:#34495d;
+ --line-hover:#849db3;
+ --accent:#d2e5f4;
+ --accent-ink:#122230;
+ --accent-hover:#f1f7fb;
+ --focus:#ffd28b;
+ --soft:#292e49;
+ --purple-text:#cfbfff;
+ --purple-line:#5e587e;
+ --green-surface:#174b42;
+ --green-text:#a5e1ce;
+ --green-line:#356f60;
+ --amber-surface:#3b3020;
+ --amber-text:#f0c57c;
+ --amber-line:#78613d;
+ --red-surface:#472735;
+ --red-text:#ffb4c2;
+ --red-line:#844657;
+ --blue-surface:#1b3452;
+ --blue-text:#b5d4ff;
+ --blue-line:#40688f;
+ background:var(--canvas);
+ color:var(--text);
+}
+body{background:var(--canvas);color:var(--text)}
+*{scrollbar-color:#536f87 var(--canvas)}
+::-webkit-scrollbar-track{background:var(--canvas)}
+::-webkit-scrollbar-thumb{background:#536f87;border:3px solid var(--canvas);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:var(--line-hover)}
+::selection{background:#365777;color:#f1f7fb}
+a{color:var(--blue-text)}
+a:hover{color:var(--accent-hover)}
+:is(button,a,input,textarea,select,summary,[tabindex]):focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+input,textarea,select{caret-color:var(--accent);accent-color:var(--accent)}
+input::placeholder,textarea::placeholder{color:var(--muted);opacity:1}
+option,optgroup{background:var(--surface-raised);color:var(--text)}
+:is(input,textarea,select):disabled{opacity:.6;cursor:not-allowed}
+:is(input,textarea,select)[readonly]{color:var(--muted)}
+:is(input,textarea,select)[aria-invalid=true],:is(input,textarea,select):user-invalid{border-color:var(--red-text)}
+input:autofill{box-shadow:0 0 0 1000px var(--surface-raised) inset;color:var(--text)}
+input:-webkit-autofill{-webkit-box-shadow:0 0 0 1000px var(--surface-raised) inset;-webkit-text-fill-color:var(--text)}

@@ -1,0 +1,36 @@
+{
+  "name": "relay-room",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Project ownership, task approvals, agent activity and project views.",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server-shared.mjs",
+    "test": "node --test tests/control.test.mjs",
+    "check": "node scripts/check.mjs",
+    "build": "node build-shared.mjs",
+    "test:browser": "node tests/browser.test.mjs",
+    "start:shared": "node --env-file-if-exists=.env server-shared.mjs",
+    "build:shared": "node build-shared.mjs",
+    "test:backend": "node --test tests/backend.test.mjs",
+    "test:shared-browser": "node tests/shared-browser.test.mjs",
+    "db:generate": "drizzle-kit generate --name relay_workspace",
+    "build:demo": "node build.mjs",
+    "test:wake": "node --test tests/wake.test.mjs",
+    "test:all": "node build-shared.mjs && node --test tests/model.test.mjs tests/backend.test.mjs tests/wake.test.mjs tests/control.test.mjs tests/ui-dom.test.mjs tests/network.test.mjs tests/network-ui.test.mjs tests/network-motion.test.mjs tests/control-edge.test.mjs tests/edge-runtime.test.mjs tests/adapter.test.mjs",
+    "start:demo": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=24.11"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.45.2",
+    "esbuild": "0.28.2",
+    "linkedom": "^0.18.13",
+    "miniflare": "^4.20260730.0"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "project_id": "YOUR_OPENAI_PROJECT_ID",
+  "d1": "YOUR_D1_DATABASE_ID",
+  "r2": null,
+  "capabilities": [
+    "mcp"
+  ]
+}
