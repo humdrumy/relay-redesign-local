@@ -15,11 +15,11 @@
         "defaultPrompt": "Read my authenticated Relay queue and handle the next eligible task using the Relay supervision protocol.",
         "developerName": "Ethan Menezes",
         "displayName": "Relay Vercel",
-        "longDescription": "Read the authenticated task queue, collaborate on plans, supervise owned work and keep progress in each task’s Slack thread. Connect using your invited Relay account; your email determines the Dot or Scout identity.",
+        "longDescription": "Use Work tasks with manual reviews or explicitly enabled personal Agentic tasks. One primary owner plans and executes each task, with optional research from an idle peer. Connect using your invited Relay account; your email determines the Dot or Scout identity.",
         "shortDescription": "Relay task supervision"
       }
     }
   },
   "name": "relay-vercel",
-  "version": "1.1.0"
+  "version": "1.2.0"
 }

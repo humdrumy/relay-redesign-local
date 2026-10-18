@@ -23,13 +23,41 @@ export function teamCapacity(state, now) {
   });
 }
 export function startTeamPlanning(task) {
-  task.team = {phase:'planning', owner:null, fence:0, accepted:[], notes:[], round:1};
+  task.team = {phase:'planning', owner:null, fence:0, accepted:[], notes:[], round:1, planningClosed:false};
   task.owner = null;
 }
 export function resetTeamPlanning(task) {
   if (!task.team) return;
-  task.team.phase='planning'; task.team.owner=null; task.team.fence++;
-  task.team.accepted=[]; task.team.round++; task.owner=null;
+  task.team.phase=task.team.planningClosed?'assigned':'planning';
+  task.team.accepted=[]; task.team.round++; task.owner=task.team.owner;
+}
+
+// A responding agent can take unassigned work without waiting for a peer's
+// heartbeat, capacity report, research, or acceptance. The store commits this
+// assignment atomically, so competing claims cannot create two owners.
+export function claimTeamTask(state, task, actor, now) {
+  requireValue(TEAM_AGENTS.includes(actor),'FORBIDDEN','Only Dot or Scout may take this task.');
+  requireValue(!task.team.owner,'TASK_OWNED','This task already has an owner.');
+  const capacity=teamCapacity(state,now).find(a=>a.id===actor);
+  const report=state.agents.find(a=>a.id===actor)?.capacityReport;
+  requireValue(capacity.active+capacity.legacyActive<TEAM_CAPACITY&&
+    (!capacity.reportFresh||capacity.available>0&&report.usageRemainingPercent!==0),
+    'CAPACITY','Finish current work or report available capacity before taking another task.');
+  task.team.owner=actor;task.team.phase=task.team.planningClosed?'assigned':'planning';task.team.fence++;
+  task.owner=actor;
+}
+
+export function planningAvailable(state, actor, now) {
+  const capacity=teamCapacity(state,now).find(a=>a.id===actor);
+  return !!capacity&&capacity.reportFresh&&capacity.available>0&&
+    capacity.active===0&&capacity.legacyActive===0&&capacity.usageRemainingPercent!==0;
+}
+
+export function teamRecipients(state, task, now, {invite=false}={}) {
+  const owner=task.team.owner;
+  if(!owner)return TEAM_AGENTS.filter(id=>!state.agents.find(a=>a.id===id)?.paused);
+  return [owner,...(invite&&task.team.phase==='planning'
+    ? TEAM_AGENTS.filter(id=>id!==owner&&planningAvailable(state,id,now)):[])];
 }
 export function reportTeamCapacity(state, actor, command, now) {
   requireValue(TEAM_AGENTS.includes(actor),'FORBIDDEN','Only Dot and Scout report team capacity.');
@@ -39,21 +67,25 @@ export function reportTeamCapacity(state, actor, command, now) {
   state.agents.find(a=>a.id===actor).capacityReport={availableSlots:command.availableSlots,usageRemainingPercent:percent,at:now};
 }
 export function acceptTeamPlan(task, actor, revision) {
-  requireValue(TEAM_AGENTS.includes(actor),'FORBIDDEN','Only the two planners may accept the plan.');
+  requireValue(TEAM_AGENTS.includes(actor),'FORBIDDEN','Only Dot or Scout may accept the plan.');
   requireValue(task.team?.phase==='planning'&&task.plan&&revision===task.planRevision,'STALE_PLAN','Read and accept the current shared plan.');
+  requireValue(task.team.owner===actor,'TASK_NOT_OWNED','Only the task owner may finalize its plan.');
   if(!task.team.accepted.includes(actor))task.team.accepted.push(actor);
-  if(TEAM_AGENTS.every(id=>task.team.accepted.includes(id)))task.team.phase='waiting_capacity';
+  task.team.phase='assigned';
 }
 export function assignTeamTasks(state, now, notify) {
   const priority={Urgent:0,High:1,Normal:2,Low:3};
-  const waiting=state.tasks.filter(t=>t.team?.phase==='waiting_capacity'&&!t.blocker&&state.projects.find(p=>p.id===t.projectId)?.status==='active')
+  const waiting=state.tasks.filter(t=>t.team&&!t.team.owner&&['planning','waiting_capacity'].includes(t.team.phase)&&!t.blocker&&t.stage!=='ready'&&state.projects.find(p=>p.id===t.projectId)?.status==='active')
     .sort((a,b)=>(priority[a.priority]-priority[b.priority])||a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));
   for(const task of waiting){
     const candidates=teamCapacity(state,now).filter(a=>a.available>0&&a.usageRemainingPercent!==0)
       .sort((a,b)=>(a.active+a.legacyActive)-(b.active+b.legacyActive)||(b.usageRemainingPercent??-1)-(a.usageRemainingPercent??-1)||a.id.localeCompare(b.id));
     if(!candidates.length)break;
-    task.team.owner=candidates[0].id;task.team.phase='assigned';task.team.fence++;
-    task.owner=task.team.owner;task.stage='plan_review';task.lease=null;task.fence++;
+    const submitted=task.team.phase==='waiting_capacity'&&!!task.plan;
+    claimTeamTask(state,task,candidates[0].id,now);
+    task.team.phase=submitted||task.team.planningClosed?'assigned':'planning';
+    if(submitted){task.stage='plan_review';task.team.planningClosed=true;}
+    task.lease=null;task.fence++;
     task.version++;task.updatedAt=new Date(now).toISOString();
     notify(task,'task-assigned');
   }
