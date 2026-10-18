@@ -22,7 +22,9 @@ async function submit(register){
   const check=await fetch('/api/control/state');
   if(check.status===401){verifyForm.hidden=false;throw new Error('Your email needs verification. Use Send verification code below.');}
   if(!check.ok&&check.status!==404)throw new Error('The workspace could not load. Please retry.');
-  location.assign('/');
+  const next=new URLSearchParams(location.search).get('next');
+  const target=next?new URL(next,location.origin):null;
+  location.assign(target?.origin===location.origin&&target.pathname==='/oauth/authorize'?target.href:'/');
  });
 }
 form.addEventListener('submit',event=>{event.preventDefault();submit(false);});

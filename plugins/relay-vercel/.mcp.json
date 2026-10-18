@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "relay": {
+      "type": "streamable-http",
+      "url": "https://relay-redesign-local.vercel.app/mcp",
+      "headers": {},
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "oauth",
+            "client": {
+              "mode": "provided",
+              "clientId": "relay-chatgpt",
+              "tokenEndpointAuthMethod": "none"
+            },
+            "authorizationUrl": "https://relay-redesign-local.vercel.app/oauth/authorize",
+            "tokenUrl": "https://relay-redesign-local.vercel.app/oauth/token",
+            "baseScopes": [
+              "relay:agent"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

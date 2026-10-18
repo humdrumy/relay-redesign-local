@@ -4,8 +4,8 @@ import { createManagedMcp, managedMcpTools } from './managed-mcp.mjs';
 
 // Machine credentials are validated independently of browser sessions. A Dot
 // credential never receives the owner's human tools or Scout's tools.
-export async function agentMcp(request,{env,db,onCommandCommitted,taskThreadTransportFactory}){
- const identity=await controlIdentity(request,env,null);
+export async function agentMcp(request,{env,db,onCommandCommitted,taskThreadTransportFactory,resolveIdentity}){
+ const identity=await resolveIdentity?.(request)??await controlIdentity(request,env,null);
  if(identity.kind!=='agent'||!['dot','scout'].includes(identity.actor))return Response.json({error:'FORBIDDEN'},{status:403});
  if(request.method!=='POST')return new Response(null,{status:405});
  const raw=await request.text();if(raw.length>65536)return new Response(null,{status:413});

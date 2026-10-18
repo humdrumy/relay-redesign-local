@@ -1,24 +1,25 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "relay-vercel",
-  "version": "1.0.0",
-  "description": "Operate the private Vercel Relay workspace as Dot or Scout through authenticated task, planning, thread and worker registry tools.",
   "author": {
-    "name": "Relay"
+    "email": "ethan@lockeyourloan.com",
+    "name": "Ethan Menezes"
   },
+  "description": "Operate the private Vercel Relay workspace as Dot or Scout through authenticated task, planning, thread and worker registry tools.",
   "extensions": {
     "com.openai": {
       "interface": {
-        "displayName": "Relay Vercel",
-        "shortDescription": "Relay task supervision",
-        "longDescription": "Read the authenticated task queue, collaborate on plans, supervise owned work and keep progress in each task’s Slack thread. Requires a private Dot or Scout connection credential.",
-        "developerName": "Relay",
-        "category": "Productivity",
         "capabilities": [
           "Interactive"
         ],
-        "defaultPrompt": "Read my authenticated Relay queue and handle the next eligible task using the Relay supervision protocol."
+        "category": "Productivity",
+        "defaultPrompt": "Read my authenticated Relay queue and handle the next eligible task using the Relay supervision protocol.",
+        "developerName": "Ethan Menezes",
+        "displayName": "Relay Vercel",
+        "longDescription": "Read the authenticated task queue, collaborate on plans, supervise owned work and keep progress in each task’s Slack thread. Connect using your invited Relay account; your email determines the Dot or Scout identity.",
+        "shortDescription": "Relay task supervision"
       }
     }
-  }
+  },
+  "name": "relay-vercel",
+  "version": "1.1.0"
 }
