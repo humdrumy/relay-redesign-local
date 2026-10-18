@@ -1,0 +1,17 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "relay": {
+      "type": "streamable-http",
+      "url": "https://relay-redesign-local.vercel.app/mcp",
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "api_key",
+            "headerScheme": "bearer"
+          }
+        }
+      }
+    }
+  }
+}

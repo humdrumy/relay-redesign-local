@@ -18,10 +18,12 @@
     "build:demo": "node build.mjs",
     "test:wake": "node --test tests/wake.test.mjs",
     "test:all": "node build-shared.mjs && node --test tests/model.test.mjs tests/backend.test.mjs tests/wake.test.mjs tests/control.test.mjs tests/ui-dom.test.mjs tests/network.test.mjs tests/network-ui.test.mjs tests/network-motion.test.mjs tests/control-edge.test.mjs tests/edge-runtime.test.mjs tests/adapter.test.mjs",
-    "start:demo": "node server.mjs"
+    "start:demo": "node server.mjs",
+    "build:vercel": "node build-vercel.mjs",
+    "db:migrate:postgres": "node scripts/migrate-postgres.mjs"
   },
   "engines": {
-    "node": ">=24.11"
+    "node": "24.x"
   },
   "devDependencies": {
     "drizzle-kit": "0.31.10",
@@ -31,6 +33,10 @@
     "miniflare": "^4.20260730.0"
   },
   "dependencies": {
+    "@neondatabase/auth": "0.6.0-beta",
+    "@neondatabase/serverless": "1.2.0",
+    "@vercel/functions": "3.10.1",
+    "@vercel/queue": "0.8.0",
     "three": "0.186.1"
   }
 }
