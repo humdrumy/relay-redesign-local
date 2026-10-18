@@ -27,6 +27,8 @@ async function fixture(t){
  const call=(path,body,headers)=>handleOAuth(request(path,body,headers),env,db,options);
  async function authorize(){
   const response=await call('/oauth/authorize?'+params()),html=await response.text(),cookie=response.headers.get('set-cookie').split(';')[0];
+  assert.equal(response.headers.get('referrer-policy'),'same-origin','Consent POST must retain its same-origin Origin header');
+  assert.ok(response.headers.get('content-security-policy').includes("form-action 'self' "+OAUTH_REDIRECT+';'));
   const request_id=html.match(/name="request_id" value="([^"]+)"/)[1],csrf=html.match(/name="csrf" value="([^"]+)"/)[1];
   const consent=await call('/oauth/authorize',{request_id,csrf,decision:'allow'},{cookie});assert.equal(consent.status,303);
   const redirect=new URL(consent.headers.get('location'));assert.equal(redirect.searchParams.get('state'),'test-state');assert.equal(redirect.searchParams.get('iss'),origin);
