@@ -108,15 +108,21 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
     if (!verified) report('identity_mismatch');
     return verified;
   }
-  async function matches(message, op) {
-    return object(message) && message.type === 'message' &&
+  async function matches(message, op, expectedText = null) {
+    const trustedSenderAndThread = object(message) && message.type === 'message' &&
       message.user === expected.userId && message.bot_id === expected.botId &&
       (message.channel === undefined || message.channel === op.channelId) &&
       typeof message.ts === 'string' && TS.test(message.ts) &&
       (op.kind === 'root' ? message.thread_ts === undefined || message.thread_ts === message.ts
-        : message.thread_ts === op.rootMessageTs && message.ts !== op.rootMessageTs) &&
-      object(message.metadata) && message.metadata.event_type === EVENT &&
+        : message.thread_ts === op.rootMessageTs && message.ts !== op.rootMessageTs);
+    if (!trustedSenderAndThread) return false;
+    const correlated = object(message.metadata) && message.metadata.event_type === EVENT &&
       object(message.metadata.event_payload) && message.metadata.event_payload.correlation_id === await taskThreadCorrelation(op);
+    // Slack installations and history responses can omit message metadata even when
+    // the original post succeeded. In that case, bind only one exact-content match
+    // from the configured bot in the exact destination/thread. Ambiguous matches
+    // remain uncertain; task content is still treated as untrusted by Relay agents.
+    return correlated || (typeof expectedText === 'string' && message.text === expectedText);
   }
   const receipt = (op, ts) => ({ namespace: { ...op.namespace }, taskId: op.taskId,
     operationId: op.operationId, channelId: op.channelId, payloadRef: op.payloadRef,
@@ -162,6 +168,8 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
         if (!resolved) return result('invalid_binding');
         if (!await identity()) return result('identity_unverified');
         const { operation: op, rootTs } = resolved;
+        const rootPayload = await bounded(() => resolvePayload(op.payloadRef, op));
+        const expectedRootText = object(rootPayload) && typeof rootPayload.text === 'string' ? rootPayload.text : null;
         let cursor;
         for (let page = 0; page < maxPages; page++) {
           const parameters = { channel: op.channelId, ts: rootTs, include_all_metadata: true, limit: pageSize };
@@ -177,7 +185,7 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
           const staged = new Map(); let verifiedOnPage = false, addedSize = 0;
           for (const message of body.messages) {
             if (message?.ts === rootTs) {
-              if (!await matches(message, op)) return result('root_mismatch', null, true);
+              if (!await matches(message, op, expectedRootText)) return result('root_mismatch', null, true);
               verifiedOnPage = true;
             }
             const projected = projectMessage(message, op.channelId, rootTs);
@@ -215,7 +223,7 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
         if (op.kind === 'reply') parameters.thread_ts = op.rootMessageTs;
         const response = await request('chat.postMessage', parameters, true, beforePost);
         if (!response) return null;
-        if (response.channel !== op.channelId || !await matches(response.message, op) || response.ts !== response.message.ts) {
+        if (response.channel !== op.channelId || !await matches(response.message, op, payload.text) || response.ts !== response.message.ts) {
           report('unproven_receipt'); return null;
         }
         return receipt(op, response.ts);
@@ -225,6 +233,8 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
       try {
         const op = structuredClone(operation);
         if (!valid(op) || !await identity()) return null;
+        const payload = await bounded(() => resolvePayload(op.payloadRef, op));
+        const expectedText = object(payload) && typeof payload.text === 'string' ? payload.text : null;
         const found = new Map(), cursors = new Set();
         let cursor;
         for (let page = 0; page < maxPages; page++) {
@@ -237,7 +247,7 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
               (body.channel !== undefined && body.channel !== op.channelId) ||
               (body.has_more !== undefined && typeof body.has_more !== 'boolean') ||
               (body.response_metadata !== undefined && !object(body.response_metadata))) { report('malformed_response'); return null; }
-          for (const message of body.messages) if (await matches(message, op)) found.set(message.ts, message);
+          for (const message of body.messages) if (await matches(message, op, expectedText)) found.set(message.ts, message);
           if (found.size > 1) { report('ambiguous_match'); return null; }
           const next = body.response_metadata?.next_cursor;
           if (next !== undefined && typeof next !== 'string') { report('malformed_response'); return null; }
