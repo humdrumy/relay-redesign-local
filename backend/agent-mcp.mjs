@@ -15,7 +15,7 @@ export async function agentMcp(request,{env,db,onCommandCommitted,taskThreadTran
  if(!rpc||Array.isArray(rpc)||rpc.jsonrpc!=='2.0')return failure(-32600,'Invalid JSON-RPC request');
  const config={...env,RELAY_MCP_DOT_ENABLED:'true',RELAY_MCP_SCOUT_SUBJECT:'relay-agent:scout'};
  const definitions=managedMcpTools(config).filter(tool=>tool.name.startsWith(`relay_${identity.actor}_`));
- if(rpc.method==='initialize')return reply({protocolVersion:'2025-03-26',capabilities:{tools:{}},serverInfo:{name:'relay-vercel',version:'4.0.0'},instructions:'Read your queue. Collaborate on planning, then only the assigned owner executes. Ingest the complete task thread before each Luna step.'});
+ if(rpc.method==='initialize')return reply({protocolVersion:'2025-03-26',capabilities:{tools:{}},serverInfo:{name:'relay-vercel',version:'4.0.0'},instructions:'Always call your actor-specific relay_<actor>_queue before taking action. For an explicit request to create a standalone task, use relay_<actor>_project_claim only if the Relay project is unassigned; never claim it to take a jointly planned task or if the other bot owns it. Then call relay_<actor>_task_create with the current epoch, returned projectFence, required title, and only known details. Do not use the generic command tool to create tasks. Report success only when task_create returns a taskId. For task work, Dot and Scout collaborate during planning, then only the assigned owner executes. Ingest the complete task thread before each Luna step.'});
  if(rpc.method==='notifications/initialized')return new Response(null,{status:202});
  if(rpc.method==='ping')return reply({});
  if(rpc.method==='tools/list')return reply({tools:definitions});
