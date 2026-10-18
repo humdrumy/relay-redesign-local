@@ -6,9 +6,10 @@ const binding={workspaceId:'T-RELAY',userId:'U-RELAY-BOT',botId:'B-RELAY-BOT'};
 const namespace={instanceId:'relay-test',epoch:'epoch-test',workspaceId:binding.workspaceId};
 const channelId='C-RELAY';
 const rootTs='1792288112.680309';
-const payload={text:'Relay task: Confirm Dot and Scout received the task\nTask ID: RLY-TEST1234'};
+const payload={text:'Relay task: Confirm Dot and Scout received the task\nTask ID: RLY-TEST1234\nhttps://relay-redesign-local.vercel.app'};
 const rootOperation={namespace,taskId:'RLY-TEST1234',channelId,operationId:'task-root:test',payloadRef:'relay-content:v1:test',kind:'root',rootMessageTs:null};
-const rootMessage={type:'message',channel:channelId,user:binding.userId,bot_id:binding.botId,ts:rootTs,text:payload.text};
+const rootMessage={type:'message',channel:channelId,user:binding.userId,bot_id:binding.botId,ts:rootTs,
+ text:payload.text.replace('https://relay-redesign-local.vercel.app','<https://relay-redesign-local.vercel.app>')};
 
 function transportFor(route){
  return createSlackTaskThreadTransport({enabled:true,authorizationHeader:'Bearer xoxb-test-token',binding,
@@ -21,14 +22,14 @@ function transportFor(route){
   }});
 }
 
-test('accepts a uniquely bound exact-content Slack root when metadata is omitted',async()=>{
+test('accepts exact-content Slack roots with Slack autoformatted URLs when metadata is omitted',async()=>{
  const transport=transportFor(method=>method==='chat.postMessage'?{ok:true,channel:channelId,ts:rootTs,message:rootMessage}:null);
  const receipt=await transport.send(rootOperation,{beforePost:async()=>true});
  assert.deepEqual(receipt,{namespace,taskId:rootOperation.taskId,operationId:rootOperation.operationId,
   channelId,payloadRef:rootOperation.payloadRef,messageTs:rootTs,rootMessageTs:null});
 });
 
-test('reconciles an uncertain Slack root by exact text and trusted sender',async()=>{
+test('reconciles an uncertain Slack root by normalized exact text and trusted sender',async()=>{
  const transport=transportFor(method=>method==='conversations.history'?{ok:true,channel:channelId,messages:[rootMessage],has_more:false}:null);
  assert.deepEqual(await transport.lookup(rootOperation),{namespace,taskId:rootOperation.taskId,
   operationId:rootOperation.operationId,channelId,payloadRef:rootOperation.payloadRef,messageTs:rootTs,rootMessageTs:null});
@@ -40,6 +41,6 @@ test('reads the confirmed task thread when Slack omits root metadata',async()=>{
   root:{kind:'root',status:'confirmed',operationId:rootOperation.operationId,payloadRef:rootOperation.payloadRef,
    attempt:1,messageTs:rootTs,rootMessageTs:rootTs}});
  assert.equal(result.status,'complete');
- assert.deepEqual(result.messages,[{text:payload.text,textTruncated:false,messageTs:rootTs,rootMessageTs:rootTs,isRoot:true,
+ assert.deepEqual(result.messages,[{text:rootMessage.text,textTruncated:false,messageTs:rootTs,rootMessageTs:rootTs,isRoot:true,
   author:{userId:binding.userId,botId:binding.botId}}]);
 });

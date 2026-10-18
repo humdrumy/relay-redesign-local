@@ -3,6 +3,9 @@ const SLACK_ORIGIN = 'https://slack.com/api/';
 const TS = /^\d+\.\d+$(?![\s\S])/;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const nonempty = value => typeof value === 'string' && value.length > 0 && value.trim() === value;
+const comparableSlackText = value => typeof value === 'string'
+  ? value.replace(/(?<!<)https?:\/\/[^\s<>]+(?!>)/g, link => `<${link}>`)
+  : null;
 const EVENT = 'relay.task_thread.v1';
 
 export async function taskThreadCorrelation(operation) {
@@ -122,7 +125,8 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
     // the original post succeeded. In that case, bind only one exact-content match
     // from the configured bot in the exact destination/thread. Ambiguous matches
     // remain uncertain; task content is still treated as untrusted by Relay agents.
-    return correlated || (typeof expectedText === 'string' && message.text === expectedText);
+    return correlated || (typeof expectedText === 'string' &&
+      comparableSlackText(message.text) === comparableSlackText(expectedText));
   }
   const receipt = (op, ts) => ({ namespace: { ...op.namespace }, taskId: op.taskId,
     operationId: op.operationId, channelId: op.channelId, payloadRef: op.payloadRef,
