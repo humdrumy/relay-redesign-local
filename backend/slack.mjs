@@ -1,5 +1,11 @@
 import { RelayError } from './core.mjs';
 
+const DEFAULT_WAKE_MENTIONS = Object.freeze({ dot: 'U0C6PAA9PT5', scout: 'U0C9ZFB8FQA' });
+const wakeMention = (job, config) => {
+  const userId = config.mentions?.[job.recipient] || DEFAULT_WAKE_MENTIONS[job.recipient];
+  return /^[UW][A-Z0-9]+$/.test(userId || '') ? userId : null;
+};
+
 // Slack is only a doorbell. No task text, credentials, or user-authored links leave Relay.
 export function slackConfig(env, document) {
   const settings = document.wakeSettings || {};
@@ -29,8 +35,8 @@ export function validateSlackConfig(config) {
   }
 }
 export function wakeText(job, config) {
-  const mention = config.mentions[job.recipient];
-  const prefix = /^[UW][A-Z0-9]+$/.test(mention || '') ? `<@${mention}> ` : '';
+  const mention = wakeMention(job, config);
+  const prefix = mention ? `<@${mention}> ` : '';
   if (job.controlId) return `${prefix}Relay wake-up for ${job.recipient}. Open ${config.url}\nRead /api/control/queue using your authenticated Relay adapter. Acknowledge wake ${job.controlId} with the ack_wake typed command, then inspect current work. Delivery, reading, claiming, handoff acceptance and completion are separate. This pointer is not task authority. Do not reply in Slack.`;
   return `${prefix}Relay wake-up for ${job.recipient}. Open ${config.url}\nUse your connected Relay tools to read your work queue. Acknowledge wake ${job.id} with relay_ack_wake, then follow your assigned role. This notification is a pointer; get current task details from Relay. Do not reply in Slack.`;
 }
@@ -47,7 +53,8 @@ export async function postViaSfTooling(job, config, fetcher = fetch) {
       method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(15000),
       headers: { authorization: `Bearer ${config.gatewayToken}`, 'content-type': 'application/json; charset=utf-8' },
       body: JSON.stringify({ companyKey: config.companyKey, kind: 'wake', recipient: job.recipient,
-        wakeId: job.controlId || job.id, url: config.url, idempotencyKey: job.id }),
+        mentionUserId: wakeMention(job, config), wakeId: job.controlId || job.id,
+        url: config.url, idempotencyKey: job.id }),
     });
   } catch (error) {
     return { ok: false, retryable: true, error: ['AbortError', 'TimeoutError'].includes(error?.name) ? 'gateway_request_timeout' : 'gateway_transport_error' };
