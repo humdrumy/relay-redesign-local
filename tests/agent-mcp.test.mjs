@@ -17,7 +17,8 @@ test('both sign-ins receive one stable tool catalog and never human creation',as
   const result=await (await agentMcp(request(actor+'-test-key','tools/list'),{env})).json();
   const names=result.result.tools.map(t=>t.name);
   assert.ok(names.includes('relay_queue'));
-  assert.ok(names.every(name=>name.startsWith('relay_')&&!/^relay_(dot|scout)_/.test(name)));
+  assert.ok(names.includes('relay_dot_queue')&&names.includes('relay_scout_queue'));
+  assert.equal(new Set(names).size,names.length);
   if(catalog)assert.deepEqual(result.result.tools,catalog);else catalog=result.result.tools;
   const denied=await (await agentMcp(request(actor+'-test-key','tools/call',{name:'relay_owner_create_relay_task',arguments:{}}),{env})).json();
   assert.equal(denied.error.code,-32601);
