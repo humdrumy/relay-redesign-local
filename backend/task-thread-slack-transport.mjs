@@ -1,3 +1,5 @@
+import { SLACK_MESSAGE_VIEW_LIMIT, withRookMention } from './slack-mention.mjs';
+
 const FAKE_ORIGIN = 'https://slack.invalid/api/';
 const SLACK_ORIGIN = 'https://slack.com/api/';
 const TS = /^\d+\.\d+$(?![\s\S])/;
@@ -125,8 +127,9 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
     // the original post succeeded. In that case, bind only one exact-content match
     // from the configured bot in the exact destination/thread. Ambiguous matches
     // remain uncertain; task content is still treated as untrusted by Relay agents.
-    return correlated || (typeof expectedText === 'string' &&
-      comparableSlackText(message.text) === comparableSlackText(expectedText));
+    const alternatives = Array.isArray(expectedText) ? expectedText : [expectedText];
+    return correlated || alternatives.some(text => typeof text === 'string' &&
+      comparableSlackText(message.text) === comparableSlackText(text));
   }
   const receipt = (op, ts) => ({ namespace: { ...op.namespace }, taskId: op.taskId,
     operationId: op.operationId, channelId: op.channelId, payloadRef: op.payloadRef,
@@ -153,7 +156,7 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
         (message.bot_id !== undefined && !authorId(message.bot_id)) ||
         (message.user === undefined && message.bot_id === undefined) ||
         (message.subtype !== undefined && message.subtype !== 'bot_message' && message.subtype !== 'thread_broadcast')) return null;
-    return { text: message.text.slice(0, 4000), textTruncated: message.text.length > 4000,
+    return { text: message.text.slice(0, SLACK_MESSAGE_VIEW_LIMIT), textTruncated: message.text.length > SLACK_MESSAGE_VIEW_LIMIT,
       messageTs: message.ts, rootMessageTs: rootTs, isRoot: message.ts === rootTs,
       author: { userId: message.user ?? null, botId: message.bot_id ?? null } };
   }
@@ -173,7 +176,8 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
         if (!await identity()) return result('identity_unverified');
         const { operation: op, rootTs } = resolved;
         const rootPayload = await bounded(() => resolvePayload(op.payloadRef, op));
-        const expectedRootText = object(rootPayload) && typeof rootPayload.text === 'string' ? rootPayload.text : null;
+        const expectedRootText = object(rootPayload) && typeof rootPayload.text === 'string'
+          ? [rootPayload.text, withRookMention(rootPayload.text)] : null;
         let cursor;
         for (let page = 0; page < maxPages; page++) {
           const parameters = { channel: op.channelId, ts: rootTs, include_all_metadata: true, limit: pageSize };
@@ -221,13 +225,14 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
         const payload = await bounded(() => resolvePayload(op.payloadRef, op));
         if (!object(payload) || Object.keys(payload).some(key => key !== 'text') ||
             !nonempty(payload.text) || payload.text.length > 4000 || !await identity()) return null;
-        const parameters = { channel: op.channelId, text: payload.text,
+        const messageText = withRookMention(payload.text);
+        const parameters = { channel: op.channelId, text: messageText,
           metadata: { event_type: EVENT, event_payload: { correlation_id: await taskThreadCorrelation(op) } },
           unfurl_links: false, unfurl_media: false, reply_broadcast: false };
         if (op.kind === 'reply') parameters.thread_ts = op.rootMessageTs;
         const response = await request('chat.postMessage', parameters, true, beforePost);
         if (!response) return null;
-        if (response.channel !== op.channelId || !await matches(response.message, op, payload.text) || response.ts !== response.message.ts) {
+        if (response.channel !== op.channelId || !await matches(response.message, op, messageText) || response.ts !== response.message.ts) {
           report('unproven_receipt'); return null;
         }
         return receipt(op, response.ts);
@@ -238,7 +243,8 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
         const op = structuredClone(operation);
         if (!valid(op) || !await identity()) return null;
         const payload = await bounded(() => resolvePayload(op.payloadRef, op));
-        const expectedText = object(payload) && typeof payload.text === 'string' ? payload.text : null;
+        const expectedText = object(payload) && typeof payload.text === 'string'
+          ? [payload.text, withRookMention(payload.text)] : null;
         const found = new Map(), cursors = new Set();
         let cursor;
         for (let page = 0; page < maxPages; page++) {

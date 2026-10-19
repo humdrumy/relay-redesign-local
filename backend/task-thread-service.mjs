@@ -4,6 +4,7 @@ import { SqlTaskThreadStore, TaskThreads } from './task-threads.mjs';
 import { taskThreadPayloadRef } from './task-thread-runtime.mjs';
 import { taskAuthority, teamCanRead } from './team-planning.mjs';
 import { saveThreadPayload } from './thread-payloads.mjs';
+import { SLACK_MESSAGE_VIEW_LIMIT } from './slack-mention.mjs';
 
 const fail=(code,message,status=409)=>{throw new RelayError(code,message,status);};
 const validText=(value,name,max=512)=>{
@@ -24,8 +25,8 @@ function conversationProjection(value,rootTs){
   if(!Array.isArray(value.messages)||value.messages.length>1000)return empty('invalid_projection');
   const messages=[],seen=new Set();let textSize=0;
   for(const item of value.messages){
-    if(!item||typeof item!=='object'||typeof item.text!=='string'||item.text.length>4000||typeof item.textTruncated!=='boolean'||
-        item.textTruncated&&item.text.length!==4000||
+    if(!item||typeof item!=='object'||typeof item.text!=='string'||item.text.length>SLACK_MESSAGE_VIEW_LIMIT||typeof item.textTruncated!=='boolean'||
+        item.textTruncated&&item.text.length!==SLACK_MESSAGE_VIEW_LIMIT||
         !threadTs(item.messageTs)||item.rootMessageTs!==rootTs||typeof item.isRoot!=='boolean'||item.isRoot!==(item.messageTs===rootTs)||
         !item.author||typeof item.author!=='object'||!author(item.author.userId)||!author(item.author.botId)||(!item.author.userId&&!item.author.botId)||
         Object.keys(item.author).some(key=>!['userId','botId'].includes(key))||seen.has(item.messageTs))return empty('invalid_projection');
