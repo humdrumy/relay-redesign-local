@@ -14,6 +14,7 @@ export async function drainTaskThreads(db,env,{transport=threadTransport(env,db)
  const registry=env.RELAY_WORKER_RUNS_ENABLED==='true'?await db.prepare('SELECT body FROM relay_worker_run_registry WHERE instance_id=? AND workspace_id=? AND epoch=?').bind(env.RELAY_WORKER_RUNS_INSTANCE_ID,env.RELAY_WORKER_RUNS_WORKSPACE_ID,snapshot.meta.epoch).first():null;
  const runs=registry?JSON.parse(registry.body).runs:[];
  for(const task of snapshot.tasks){
+  if(task.archivedAt)continue;
   if(sent>=limit||Date.now()-started>=budgetMs){pending++;break;}
   const threads=createTaskThreadService({env,db,transport,resolveIdentity:async()=>({kind:'human',subject:snapshot.meta.ownerId})});
   let projection=await threads.readProjection(null,{taskId:task.id});

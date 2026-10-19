@@ -17,6 +17,7 @@ const deny=(code,message,status=403)=>{throw new RelayError(code,message,status)
 function ownerProjection(s,p,now,configured,env){
   const view=controlProjection(s,p,now,configured);view.runtime={hosting:env.RELAY_HOSTING||'local',taskThreads:env.RELAY_TASK_THREADS_ENABLED==='true'};
   if(p.role==='human'){
+    view.archivedTasks=s.tasks.filter(task=>task.archivedAt).map(task=>({id:task.id,title:task.title,projectId:task.projectId,archivedAt:task.archivedAt}));
     const lastHeartbeat=s.settings[0]?.lunaLastHeartbeat||null;
     const configured=typeof env.RELAY_LUNA_KEY_HASH==='string'&&/^[a-f0-9]{64}$/.test(env.RELAY_LUNA_KEY_HASH);
     const connected=configured&&!!lastHeartbeat&&now-Date.parse(lastHeartbeat)<=90000;
@@ -31,7 +32,7 @@ function ownerProjection(s,p,now,configured,env){
 function viewerProjection(s,env,now){
   const projects=new Map(s.projects.map(project=>[project.id,project.name]));
   return {viewer:{role:'viewer'},meta:{revision:s.meta.revision},serverTime:now,siteVersion:Number(env.RELAY_SITE_VERSION)||null,
-    tasks:s.tasks.filter(task=>!task.synthetic&&!task.source?.system).map(task=>({id:task.id,title:task.title,stage:task.stage,priority:task.priority,project:projects.get(task.projectId)||'Relay',humanOwner:task.humanOwner||'Alex',agent:task.owner||null,updatedAt:task.updatedAt}))};
+    tasks:s.tasks.filter(task=>!task.archivedAt&&!task.synthetic&&!task.source?.system).map(task=>({id:task.id,title:task.title,stage:task.stage,priority:task.priority,project:projects.get(task.projectId)||'Relay',humanOwner:task.humanOwner||'Alex',agent:task.owner||null,updatedAt:task.updatedAt}))};
 }
 async function requestBody(request){if(!request.headers.get('content-type')?.startsWith('application/json'))deny('CONTENT_TYPE','Use application/json.',415);let size=0;const parts=[],reader=request.body?.getReader();if(reader)while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.length;if(size>65536){await reader.cancel();deny('BODY_TOO_LARGE','Use artifact references for large data.',413);}parts.push(chunk.value);}const bytes=new Uint8Array(size);let at=0;for(const p of parts){bytes.set(p,at);at+=p.length;}try{return JSON.parse(new TextDecoder().decode(bytes));}catch{deny('INVALID_JSON','Use valid JSON.',400);}}
 export function adapterKeys(env){let keys={};try{keys=JSON.parse(env.RELAY_AGENT_KEYS_JSON||'{}');}catch{deny('ADAPTER_CONFIGURATION','Agent key configuration is invalid.',503);}if(!keys||typeof keys!=='object'||Array.isArray(keys)||Object.entries(keys).some(([hash,id])=>!/^[a-f0-9]{64}$/.test(hash)||!CONTROL_AGENTS[id]))deny('ADAPTER_CONFIGURATION','Agent key configuration is invalid.',503);return keys;}

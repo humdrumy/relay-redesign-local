@@ -39,6 +39,19 @@ async function fixture(t,{legacy=false}={}){
   const finish=async id=>{await plan(id);await approve(id);await build(id);await final(id);};
   return {store,db,file,connections,options,old,request,run,create,claimProject,plan,approve,evidence,build,final,finish,advance:ms=>now+=ms};
 }
+test('workspace owner can archive and restore tasks without disrupting other work',async t=>{
+  const f=await fixture(t),old=await f.create('old'),active=await f.create('active');
+  await rejected(f.run('scout',{type:'archive_tasks',taskIds:[old]}),'FORBIDDEN');
+  await f.run('human',{type:'archive_tasks',taskIds:[old]});
+  let state=await f.store.read(),view=controlProjection(state,controlPrincipal(state,human),f.options.now());
+  assert.deepEqual(view.tasks.map(task=>task.id),[active]);
+  assert.equal(view.projects[0].taskCount,1);
+  assert.ok(state.wakes.filter(w=>w.target?.taskId===old).every(w=>w.status==='cancelled'));
+  await rejected(f.run('human',{type:'edit_task',taskId:old,input:{title:'Changed'}}),'TASK_NOT_FOUND');
+  await f.run('human',{type:'restore_task',taskId:old});
+  state=await f.store.read();view=controlProjection(state,controlPrincipal(state,human),f.options.now());
+  assert.equal(view.tasks.length,2);
+});
 test('legacy import preserves original bytes; all imported tasks require fresh approvals',async t=>{const f=await fixture(t,{legacy:true});const before=await f.db.prepare('SELECT body FROM relay_workspaces WHERE id=?').bind('main').first();const s=await f.store.read();assert.equal(s.tasks.length,f.old.state.tasks.length);assert.ok(s.tasks.every(t=>t.synthetic&&t.legacy&&t.stage==='intake'));await f.create();assert.equal((await f.db.prepare('SELECT body FROM relay_workspaces WHERE id=?').bind('main').first()).body,before.body);await rejected(f.store.bootstrap({kind:'human',subject:'intruder'},f.old),'FORBIDDEN');});
 test('one generalist owns research/build/final gates; no handoff or agent approval powers',async t=>{const f=await fixture(t),id=await f.create();await f.plan(id,'lens');let s=await f.store.read();assert.equal(s.projects[0].owner,'lens');assert.equal(s.tasks[0].owner,'lens');assert.equal(s.tasks[0].lease,null);await rejected(f.run('lens',{type:'claim',taskId:id}),'INVALID_STAGE');await rejected(f.run('lens',{type:'approve_plan',taskId:id,scopeRevision:1,planRevision:1}),'FORBIDDEN');await f.approve(id);s=await f.store.read();assert.deepEqual(s.wakes.filter(w=>w.reason==='plan-approved').map(w=>w.recipient),['lens']);await f.build(id,'lens');await rejected(f.run('lens',{type:'approve_final',taskId:id,scopeRevision:1,planRevision:1,buildRevision:1}),'FORBIDDEN');await f.final(id);s=await f.store.read();assert.equal(s.tasks[0].stage,'ready');assert.equal(s.tasks[0].owner,'lens');assert.equal(s.projects[0].owner,'lens');assert.equal(s.offers.length,0);assert.equal(s.tasks[0].deployedAt,undefined);});
 test('competing project claims from separate database connections commit one owner',async t=>{const f=await fixture(t);const second=openSqlite(f.file);f.connections.push(second);const other=new ControlStore(second,f.options),req=await f.request({type:'claim_project',projectId:'relay'});const outcomes=await Promise.allSettled([f.store.command(identity('forge'),req),other.command(identity('flux'),{...req,operationId:crypto.randomUUID()})]);assert.equal(outcomes.filter(r=>r.status==='fulfilled').length,1);assert.equal(outcomes.find(r=>r.status==='rejected').reason.code,'STALE_PROJECT');assert.equal((await f.store.read()).events.filter(e=>e.kind==='claim_project').length,1);});

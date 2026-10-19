@@ -14,8 +14,8 @@ export function teamCanRead(task, principal) {
 export function teamCapacity(state, now) {
   return TEAM_AGENTS.map(id => {
     const agent = state.agents.find(a => a.id === id), report = agent?.capacityReport;
-    const active = state.tasks.filter(t => t.team?.owner === id && t.stage !== 'ready').length;
-    const legacyActive = state.tasks.filter(t => !t.team && ['research','build'].includes(t.stage) && taskAuthority(state,t)?.owner === id).length;
+    const active = state.tasks.filter(t => !t.archivedAt && t.team?.owner === id && t.stage !== 'ready').length;
+    const legacyActive = state.tasks.filter(t => !t.archivedAt && !t.team && ['research','build'].includes(t.stage) && taskAuthority(state,t)?.owner === id).length;
     const fresh = !!report && report.at <= now && now - report.at <= 15 * 60 * 1000;
     // Unknown/stale usage never means unlimited capacity. Reports are self-reported, not account telemetry.
     const available = !agent?.paused && fresh ? Math.max(0, Math.min(TEAM_CAPACITY-active-legacyActive, report.availableSlots-active)) : 0;
@@ -75,7 +75,7 @@ export function acceptTeamPlan(task, actor, revision) {
 }
 export function assignTeamTasks(state, now, notify) {
   const priority={Urgent:0,High:1,Normal:2,Low:3};
-  const waiting=state.tasks.filter(t=>t.team&&!t.team.owner&&['planning','waiting_capacity'].includes(t.team.phase)&&!t.blocker&&t.stage!=='ready'&&state.projects.find(p=>p.id===t.projectId)?.status==='active')
+  const waiting=state.tasks.filter(t=>!t.archivedAt&&t.team&&!t.team.owner&&['planning','waiting_capacity'].includes(t.team.phase)&&!t.blocker&&t.stage!=='ready'&&state.projects.find(p=>p.id===t.projectId)?.status==='active')
     .sort((a,b)=>(priority[a.priority]-priority[b.priority])||a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));
   for(const task of waiting){
     const candidates=teamCapacity(state,now).filter(a=>a.available>0&&a.usageRemainingPercent!==0)
