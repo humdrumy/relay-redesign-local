@@ -104,7 +104,8 @@ test('Slack payload contains a trusted pointer only and no untrusted task text',
   const job={id:crypto.randomUUID(),recipient:'dot',text:'<!channel> Secret task content',reason:'test'};
   const config={token:env.SLACK_BOT_TOKEN,channel:'C0TEST',url:env.RELAY_PUBLIC_URL,mentions:{}};
   const text=wakeText(job,config);assert.ok(!text.includes('Secret'));assert.ok(!text.includes('<!channel>'));
-  assert.ok(text.startsWith(`${ROOK_PREFIX}<@U0C6PAA9PT5> Relay wake-up`));
+  assert.ok(text.startsWith('<@U0C6PAA9PT5> Relay wake-up'));
+  assert.ok(!text.includes(ROOK_PREFIX));
   let posted;await postSlack(job,config,async(url,options)=>{posted=JSON.parse(options.body);assert.equal(url,'https://slack.com/api/chat.postMessage');assert.equal(options.redirect,'manual');return good();});
   assert.equal(posted.text,text);assert.equal(posted.client_msg_id,job.id);assert.equal(posted.unfurl_links,false);assert.equal(posted.thread_ts,undefined);
   assert.ok(wakeText({...job,recipient:'scout'},config).startsWith(`${ROOK_PREFIX}Relay wake-up`));

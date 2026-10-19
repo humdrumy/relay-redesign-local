@@ -20,11 +20,13 @@ test('one Slack root per task, durable full-text replies and no duplicate dispat
  const options={transport,sleep:async()=>{},limit:100};
  await drainTaskThreads(db,env,options);const count=posts.length;await drainTaskThreads(db,env,options);
  assert.equal(posts.length,count);assert.equal(posts.filter(p=>p.kind==='root').length,1);
+ assert.ok(posts.find(p=>p.kind==='root').text.startsWith('<@U0C6PAA9PT5> <@U0C9ZFB8FQA> '));
  const root='1700000000.000001';assert.ok(posts.filter(p=>p.kind==='reply').every(p=>p.rootMessageTs===root));
- const content=posts.filter(p=>p.operationId.startsWith('message:')).map(p=>p.text.replace(/^\[Part \d+\/\d+\]\n/,'')).join('');assert.equal(content,'human: '+fullText);
+ const content=posts.filter(p=>p.operationId.startsWith('message:')).map(p=>p.text.replace(/^<@U0C6PAA9PT5> <@U0C9ZFB8FQA> /,'').replace(/^\[Part \d+\/\d+\]\n/,'')).join('');assert.equal(content,'human: '+fullText);
  const state=await store.read();assert.ok(state.wakes.every(w=>w.status==='sent'));
+ await store.mutate(s=>{const task=s.tasks.find(row=>row.id===taskId);task.team.owner='dot';task.owner='dot';return true;});
  await db.prepare('INSERT INTO relay_worker_run_registry(instance_id,workspace_id,epoch,revision,body) VALUES(?,?,?,?,?)').bind('test','T1',state.meta.epoch,1,JSON.stringify({runs:[{taskId,runId:'actual-run-id',attemptId:'attempt-1',originProjectFence:0,revision:2,status:'succeeded',updatedAt:Date.now()}]})).run();
  const workerEnv={...env,RELAY_WORKER_RUNS_ENABLED:'true',RELAY_WORKER_RUNS_INSTANCE_ID:'test',RELAY_WORKER_RUNS_WORKSPACE_ID:'T1'};
  await drainTaskThreads(db,workerEnv,options);await drainTaskThreads(db,workerEnv,options);
- const notices=posts.filter(p=>p.operationId.startsWith('worker:'));assert.equal(notices.length,1);assert.match(notices[0].text,/actual-run-id.*succeeded/);assert.equal(notices[0].rootMessageTs,root);
+ const notices=posts.filter(p=>p.operationId.startsWith('worker:'));assert.equal(notices.length,1);assert.match(notices[0].text,/actual-run-id.*succeeded/);assert.ok(notices[0].text.startsWith('<@U0C6PAA9PT5> Worker'));assert.ok(!notices[0].text.includes('<@U0C9ZFB8FQA>'));assert.equal(notices[0].rootMessageTs,root);
 });

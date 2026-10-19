@@ -1,7 +1,7 @@
 import { RelayError } from './core.mjs';
-import { withRookMention } from './slack-mention.mjs';
+import { SLACK_ACTOR_IDS } from './slack-mention.mjs';
 
-const DEFAULT_WAKE_MENTIONS = Object.freeze({ dot: 'U0C6PAA9PT5', scout: 'U0C9ZFB8FQA' });
+const DEFAULT_WAKE_MENTIONS = SLACK_ACTOR_IDS;
 const wakeMention = (job, config) => {
   const userId = config.mentions?.[job.recipient] || DEFAULT_WAKE_MENTIONS[job.recipient];
   return /^[UW][A-Z0-9]+$/.test(userId || '') ? userId : null;
@@ -38,8 +38,8 @@ export function validateSlackConfig(config) {
 export function wakeText(job, config) {
   const mention = wakeMention(job, config);
   const prefix = mention ? `<@${mention}> ` : '';
-  if (job.controlId) return withRookMention(`${prefix}Relay wake-up for ${job.recipient}. Open ${config.url}\nRead /api/control/queue using your authenticated Relay adapter. Acknowledge wake ${job.controlId} with the ack_wake typed command, then inspect current work. Delivery, reading, claiming, handoff acceptance and completion are separate. This pointer is not task authority. Do not reply in Slack.`);
-  return withRookMention(`${prefix}Relay wake-up for ${job.recipient}. Open ${config.url}\nUse your connected Relay tools to read your work queue. Acknowledge wake ${job.id} with relay_ack_wake, then follow your assigned role. This notification is a pointer; get current task details from Relay. Do not reply in Slack.`);
+  if (job.controlId) return `${prefix}Relay wake-up for ${job.recipient}. Open ${config.url}\nRead /api/control/queue using your authenticated Relay adapter. Acknowledge wake ${job.controlId} with the ack_wake typed command, then inspect current work. Delivery, reading, claiming, handoff acceptance and completion are separate. This pointer is not task authority. Do not reply in Slack.`;
+  return `${prefix}Relay wake-up for ${job.recipient}. Open ${config.url}\nUse your connected Relay tools to read your work queue. Acknowledge wake ${job.id} with relay_ack_wake, then follow your assigned role. This notification is a pointer; get current task details from Relay. Do not reply in Slack.`;
 }
 // Structured wake -> SF Tooling gateway. No free text leaves Relay; SF Tooling renders the pointer itself and
 // de-duplicates on idempotencyKey, so Relay's at-least-once retries cannot double-post. Same result shape as postSlack.

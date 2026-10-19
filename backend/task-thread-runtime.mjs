@@ -1,6 +1,7 @@
 import { RelayError } from './core.mjs';
 import { ControlStore } from './control.mjs';
 import { createSlackTaskThreadTransport } from './task-thread-slack-transport.mjs';
+import { withActorMentions } from './slack-mention.mjs';
 
 const fail=(code,message,status=503)=>{throw new RelayError(code,message,status);};
 const configText=value=>typeof value==='string'&&!!value&&value.trim()===value&&value.length<=512;
@@ -16,18 +17,25 @@ export function createTaskThreadPayloadResolver(db){
   if(!db)throw new TypeError('A durable Relay database is required.');
   const control=new ControlStore(db);
   return async(payloadRef,operation)=>{
+    let text;
     if(typeof payloadRef==='string'&&payloadRef.startsWith('relay-content:v1:')){
       const row=await db.prepare('SELECT text FROM relay_thread_payloads WHERE ref=? AND task_id=? AND epoch=?').bind(payloadRef,operation?.taskId,operation?.namespace?.epoch).first();
-      return row?{text:row.text}:null;
+      if(!row)return null;
+      text=row.text;
+    }else{
+      if(typeof payloadRef!=='string'||!payloadRef.startsWith(PREFIX))return null;
+      const encoded=payloadRef.slice(PREFIX.length);let taskId;
+      try{taskId=decodeURIComponent(encoded);}catch{return null;}
+      if(!configText(taskId)||encodeURIComponent(taskId)!==encoded||operation?.taskId!==taskId)return null;
+      text=`Relay task thread update for ${taskId}. Open Relay to view authorized details.`;
     }
-    if(typeof payloadRef!=='string'||!payloadRef.startsWith(PREFIX))return null;
-    const encoded=payloadRef.slice(PREFIX.length);let taskId;
-    try{taskId=decodeURIComponent(encoded);}catch{return null;}
-    if(!configText(taskId)||encodeURIComponent(taskId)!==encoded||operation?.taskId!==taskId)return null;
-    const state=await control.read(),task=state.tasks.find(row=>row.id===taskId);
+    const state=await control.read(),task=state.tasks.find(row=>row.id===operation?.taskId);
     if(!task||!state.projects.some(project=>project.id===task.projectId))return null;
-    // Deliberately do not copy task titles, descriptions, prompts or conversation text.
-    return {text:`Relay task thread update for ${taskId}. Open Relay to view authorized details.`};
+    const owner=task.team?.owner??task.owner;
+    const wake=operation?.operationId?.startsWith('wake:')
+      ?state.wakes.find(item=>`wake:${item.id}`===operation.operationId&&item.target?.taskId===task.id):null;
+    const actors=operation?.kind==='root'?['dot','scout']:owner?[owner]:wake?[wake.recipient]:['dot','scout'];
+    return {text:withActorMentions(text,actors)};
   };
 }
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSlackTaskThreadTransport} from '../backend/task-thread-slack-transport.mjs';
-import {ROOK_PREFIX, SLACK_MESSAGE_VIEW_LIMIT} from '../backend/slack-mention.mjs';
+import {SLACK_MESSAGE_VIEW_LIMIT, withActorMentions} from '../backend/slack-mention.mjs';
 
 const binding={workspaceId:'T-RELAY',userId:'U-RELAY-BOT',botId:'B-RELAY-BOT'};
 const namespace={instanceId:'relay-test',epoch:'epoch-test',workspaceId:binding.workspaceId};
@@ -12,9 +12,9 @@ const rootOperation={namespace,taskId:'RLY-TEST1234',channelId,operationId:'task
 const rootMessage={type:'message',channel:channelId,user:binding.userId,bot_id:binding.botId,ts:rootTs,
  text:payload.text.replace('https://relay-redesign-local.vercel.app','<https://relay-redesign-local.vercel.app>')};
 
-function transportFor(route){
+function transportFor(route,resolved=payload){
  return createSlackTaskThreadTransport({enabled:true,authorizationHeader:'Bearer xoxb-test-token',binding,
-  resolvePayload:async()=>payload,fetch:async(url,init={})=>{
+  resolvePayload:async()=>resolved,fetch:async(url,init={})=>{
    const method=new URL(url).pathname.split('/').at(-1);
    let body;
    if(method==='auth.test')body={ok:true,team_id:binding.workspaceId,user_id:binding.userId,bot_id:binding.botId};
@@ -23,24 +23,26 @@ function transportFor(route){
   }});
 }
 
-test('posts a real Rook mention and accepts exact-content Slack roots with autoformatted URLs',async()=>{
+test('posts both real mentions on task creation and accepts autoformatted URLs',async()=>{
  let posted;
+ const mentions=withActorMentions('', ['dot','scout']);
  const transport=transportFor((method,init)=>{
   if(method!=='chat.postMessage')return null;
   posted=JSON.parse(init.body);
-  return{ok:true,channel:channelId,ts:rootTs,message:{...rootMessage,text:`${ROOK_PREFIX}${rootMessage.text}`}};
- });
+  return{ok:true,channel:channelId,ts:rootTs,message:{...rootMessage,text:`${mentions}${rootMessage.text}`}};
+ },{text:`${mentions}${payload.text}`});
  const receipt=await transport.send(rootOperation,{beforePost:async()=>true});
- assert.equal(posted.text,`${ROOK_PREFIX}${payload.text}`);
+ assert.equal(posted.text,`${mentions}${payload.text}`);
  assert.deepEqual(receipt,{namespace,taskId:rootOperation.taskId,operationId:rootOperation.operationId,
   channelId,payloadRef:rootOperation.payloadRef,messageTs:rootTs,rootMessageTs:null});
 });
 
-test('reads a full-length bot message after adding the mention',async()=>{
+test('reads a full-length bot message after adding both mentions',async()=>{
  const longText='a'.repeat(4000);
- const message={...rootMessage,text:`${ROOK_PREFIX}${longText}`};
+ const fullText=withActorMentions(longText,['dot','scout']);
+ const message={...rootMessage,text:fullText};
  const transport=createSlackTaskThreadTransport({enabled:true,authorizationHeader:'Bearer xoxb-test-token',binding,
-  resolvePayload:async()=>({text:longText}),fetch:async(url)=>({ok:true,status:200,json:async()=>{
+  resolvePayload:async()=>({text:fullText}),fetch:async(url)=>({ok:true,status:200,json:async()=>{
    const method=new URL(url).pathname.split('/').at(-1);
    return method==='auth.test'?{ok:true,team_id:binding.workspaceId,user_id:binding.userId,bot_id:binding.botId}:
     {ok:true,channel:channelId,messages:[message],has_more:false};

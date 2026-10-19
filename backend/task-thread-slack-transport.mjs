@@ -1,4 +1,4 @@
-import { SLACK_MESSAGE_VIEW_LIMIT, withRookMention } from './slack-mention.mjs';
+import { SLACK_MESSAGE_VIEW_LIMIT, legacyTextAlternatives } from './slack-mention.mjs';
 
 const FAKE_ORIGIN = 'https://slack.invalid/api/';
 const SLACK_ORIGIN = 'https://slack.com/api/';
@@ -177,7 +177,7 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
         const { operation: op, rootTs } = resolved;
         const rootPayload = await bounded(() => resolvePayload(op.payloadRef, op));
         const expectedRootText = object(rootPayload) && typeof rootPayload.text === 'string'
-          ? [rootPayload.text, withRookMention(rootPayload.text)] : null;
+          ? legacyTextAlternatives(rootPayload.text) : null;
         let cursor;
         for (let page = 0; page < maxPages; page++) {
           const parameters = { channel: op.channelId, ts: rootTs, include_all_metadata: true, limit: pageSize };
@@ -224,8 +224,8 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
         if (!valid(op) || typeof beforePost !== 'function') return null;
         const payload = await bounded(() => resolvePayload(op.payloadRef, op));
         if (!object(payload) || Object.keys(payload).some(key => key !== 'text') ||
-            !nonempty(payload.text) || payload.text.length > 4000 || !await identity()) return null;
-        const messageText = withRookMention(payload.text);
+            !nonempty(payload.text) || payload.text.length > SLACK_MESSAGE_VIEW_LIMIT || !await identity()) return null;
+        const messageText = payload.text;
         const parameters = { channel: op.channelId, text: messageText,
           metadata: { event_type: EVENT, event_payload: { correlation_id: await taskThreadCorrelation(op) } },
           unfurl_links: false, unfurl_media: false, reply_broadcast: false };
@@ -244,7 +244,7 @@ function createTransport({ fetch, resolvePayload, binding, maxPages = 20, pageSi
         if (!valid(op) || !await identity()) return null;
         const payload = await bounded(() => resolvePayload(op.payloadRef, op));
         const expectedText = object(payload) && typeof payload.text === 'string'
-          ? [payload.text, withRookMention(payload.text)] : null;
+          ? legacyTextAlternatives(payload.text) : null;
         const found = new Map(), cursors = new Set();
         let cursor;
         for (let page = 0; page < maxPages; page++) {
