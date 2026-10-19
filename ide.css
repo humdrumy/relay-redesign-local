@@ -189,3 +189,6 @@ dialog.task-detail .task-dialog-head{background:linear-gradient(90deg,var(--stag
 .dock-avatar-pulse{fill:none;stroke:#84dfbd;stroke-width:1.5;opacity:0;animation:dock-working-vector-pulse 2.8s linear infinite;animation-delay:var(--dock-pulse-delay,0ms)}
 @keyframes dock-working-vector-pulse{0%{r:10.75px;opacity:0}15%{opacity:.6}40%{opacity:.75}80%{opacity:.3}100%{r:13.3px;opacity:0}}
 @media(prefers-reduced-motion:reduce){.dock-avatar-pulse{animation:none;r:12px;opacity:.55}}
+
+/* Work and personal Agentic task views. */
+.relay-mode-switch{display:flex;gap:4px;padding:0 12px}.relay-mode-switch button{flex:1;padding:7px;border:1px solid var(--border,#393939);border-radius:5px;background:transparent;color:inherit}.relay-mode-switch button.active{background:#38352c;border-color:#b49a64;color:#ead9af}.relay-mode-help{padding:0 14px;margin:7px 0 14px;font-size:11px;color:#a9a49a}.task-mode-control{padding:14px;border:1px solid var(--border,#393939);border-radius:6px;margin-bottom:12px}.task-mode-control p{font-size:12px;line-height:1.5}.task-mode-control button{display:block;margin-top:8px}.agentic-label{color:#c1a7ef!important}

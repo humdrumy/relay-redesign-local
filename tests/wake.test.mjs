@@ -8,6 +8,7 @@ import { applyMigrations } from '../backend/migrations-local.mjs';
 import { WorkspaceStore } from '../backend/store.mjs';
 import { enqueueWake } from '../backend/core.mjs';
 import { drainSlack, postSlack, wakeText } from '../backend/slack.mjs';
+import { ROOK_PREFIX } from '../backend/slack-mention.mjs';
 import { createHandler } from '../backend/http.mjs';
 const owner = 'test-owner';
 const env = { SLACK_BOT_TOKEN: 'xoxb-test-fixture', SLACK_CHANNEL_ID: 'C0TEST', RELAY_PUBLIC_URL: 'https://relay.example' };
@@ -103,8 +104,11 @@ test('Slack payload contains a trusted pointer only and no untrusted task text',
   const job={id:crypto.randomUUID(),recipient:'dot',text:'<!channel> Secret task content',reason:'test'};
   const config={token:env.SLACK_BOT_TOKEN,channel:'C0TEST',url:env.RELAY_PUBLIC_URL,mentions:{}};
   const text=wakeText(job,config);assert.ok(!text.includes('Secret'));assert.ok(!text.includes('<!channel>'));
+  assert.ok(text.startsWith('<@U0C6PAA9PT5> Relay wake-up'));
+  assert.ok(!text.includes(ROOK_PREFIX));
   let posted;await postSlack(job,config,async(url,options)=>{posted=JSON.parse(options.body);assert.equal(url,'https://slack.com/api/chat.postMessage');assert.equal(options.redirect,'manual');return good();});
-  assert.equal(posted.client_msg_id,job.id);assert.equal(posted.unfurl_links,false);assert.equal(posted.thread_ts,undefined);
+  assert.equal(posted.text,text);assert.equal(posted.client_msg_id,job.id);assert.equal(posted.unfurl_links,false);assert.equal(posted.thread_ts,undefined);
+  assert.ok(wakeText({...job,recipient:'scout'},config).startsWith(`${ROOK_PREFIX}Relay wake-up`));
   await assert.rejects(postSlack(job,{...config,url:'javascript:alert(1)'},good),e=>e.code==='SLACK_NOT_CONFIGURED');
 });
 test('Slack redirect is rejected without following it or parsing its body',async()=>{

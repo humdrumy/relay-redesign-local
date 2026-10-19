@@ -58,10 +58,12 @@ test('separate worker processes race against durable SQLite CAS', async t => {
   const f = await fixture(t), id = await f.create('process-race'), request = await f.request({ type: 'claim', taskId: id });
   const children = ['engineer-a', 'engineer-b'].map(subject => fork(new URL('./claim-worker.mjs', import.meta.url), [], { stdio: ['ignore', 'pipe', 'pipe', 'ipc'] }));
   t.after(() => children.forEach(child => child.kill()));
+  const closed = children.map(child => once(child, 'close'));
   const ready = children.map(child => once(child, 'message')); await Promise.all(ready);
   const outcomes = children.map(child => once(child, 'message'));
   children.forEach((child, index) => child.send({ file: f.file, subject: index ? 'engineer-b' : 'engineer-a', request: { ...request, operationId: crypto.randomUUID() } }));
   const results = (await Promise.all(outcomes)).map(([value]) => value);
+  await Promise.all(closed);
   assert.equal(results.filter(value => value.ok).length, 1); assert.equal(results.find(value => !value.ok).code, 'STALE_TASK');
 });
 test('component scope conflicts across distinct tasks and fencing is monotonic', async t => {
@@ -183,9 +185,9 @@ test('HTTP denies missing identity, cross-owner calls, cross-origin writes and s
   const f = await fixture(t), handle = createHandler();
   for (const [request, status] of [[req('/api/workspace', null, null), 401], [req('/api/workspace', null, 'other'), 403], [req('/api/bootstrap', {}, OWNER, { origin: 'https://evil.test' }), 403], [req('/api/command', { actor: 'forge', command: { type: 'message' } }), 400]]) assert.equal((await handle(request, { DB: f.db })).status, status);
 });
-test('MCP exposes seven read tools and one narrow legacy wake receipt, enforcing identity and room membership', async t => {
+test('MCP exposes seven read tools, legacy wake receipt and bounded owner task creation, enforcing identity and room membership', async t => {
   const f = await fixture(t), handle = createHandler();
-  assert.equal(MCP_TOOLS.length, 8); assert.equal(MCP_TOOLS.filter(tool => tool.annotations.readOnlyHint).length, 7); assert.deepEqual(MCP_TOOLS.filter(tool => !tool.annotations.readOnlyHint).map(tool => tool.name), ['relay_ack_wake']);
+  assert.equal(MCP_TOOLS.length, 9); assert.equal(MCP_TOOLS.filter(tool => tool.annotations.readOnlyHint).length, 7); assert.deepEqual(MCP_TOOLS.filter(tool => !tool.annotations.readOnlyHint).map(tool => tool.name), ['relay_ack_wake','relay_owner_create_relay_task']);
   assert.equal((await handle(req('/mcp', rpc('relay_list_rooms'), null), { DB: f.db })).status, 401);
   assert.equal((await handle(req('/mcp', rpc('relay_list_rooms'), 'another-owner'), { DB: f.db })).status, 403);
   assert.equal((await handle(req('/mcp', rpc('relay_read_room', { room: 'direct:forge' })), { DB: f.db })).status, 403);

@@ -23,3 +23,9 @@ artifacts/
 *.db-shm
 *.db-wal
 *.sqlite*
+.vercel
+.env*
+
+generated/
+.vercel/
+work/
